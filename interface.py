@@ -37,8 +37,10 @@ if "reag_list" not in st.session_state: st.session_state.reag_list = []
 if "solv_list" not in st.session_state: st.session_state.solv_list = []
 if "prod_list" not in st.session_state: st.session_state.prod_list = []
 
-def go_to(page_name):                            #Definition of a function to create buttons to redirect users to other pages
-    st.session_state.page_active= page_name
+
+def go_to(page_name):   #Definition of a function to create buttons to redirect users to other pages
+    st.session_state.page_active = page_name
+
 
 st.sidebar.title("Menu")
 
@@ -49,18 +51,15 @@ if st.sidebar.button("🧪 Stoichiometry"):
     go_to("Stoichiometry")
     st.title("Stoichiometry")
     st.write(
-        "Write the chemical formula of your reactants, products and solvent to get the correct stoichiometry of the reaction!"
-    )
+        "Write the chemical formula of your reactants, products and solvent to get the correct stoichiometry of the reaction!")
 
 if st.sidebar.button("⚛️ Molecular visulization"):
     go_to("Molecular visualization")
-
 
 if st.session_state.page_active == "Molecular visualization":
     st.title("Draw Molecule")
     st.write("Draw your molecule to get started.")
     tab1, tab2, tab3 = ["Reactants", "Solvent/Catalyst", "Products"]
-
 
     if "number_reagents" not in st.session_state:
         st.session_state.number_reagents = 1
@@ -73,7 +72,6 @@ if st.session_state.page_active == "Molecular visualization":
         if st.session_state.number_reagents > 1:
             st.session_state.number_reagents -= 1
 
-
     col1, col2 = st.columns(2)
     with col1:
         st.button("➕ Add Reagent", on_click=add_reagents)
@@ -82,7 +80,6 @@ if st.session_state.page_active == "Molecular visualization":
 
     tabs_reag = st.tabs([f"Reagent {i + 1}" for i in range(st.session_state.number_reagents)])
     reag_list = []
-
     from streamlit_ketcher import st_ketcher
 
     for i, tab in enumerate(tabs_reag):
@@ -94,7 +91,7 @@ if st.session_state.page_active == "Molecular visualization":
                 st.success(f"**SMILES Reagent {i + 1}:** `{smiles}`")
             else:
                 st.info(f"Please draw Reagent {i + 1} above.")
-        st.session_state.reag_list = reag_list
+            st.session_state.reag_list = reag_list
 
     if "number_solvent_and_catalyst" not in st.session_state:
         st.session_state.number_solvent_and_catalyst = 1
@@ -114,8 +111,8 @@ if st.session_state.page_active == "Molecular visualization":
         st.button("➖ Remove Solvent and/or Catalyst", on_click=remove_solvent_and_catalyst)
 
     tabs_solv = st.tabs([f"Solvent {i + 1}"for i in range(st.session_state.number_solvent_and_catalyst)])
-    solv_list = []
 
+    solv_list = []
     from streamlit_ketcher import st_ketcher
 
     for i, tab in enumerate(tabs_solv):
@@ -127,7 +124,7 @@ if st.session_state.page_active == "Molecular visualization":
                 st.success(f"**SMILES Solvent/Catalyst {i + 1}:** `{smiles}`")
             else:
                 st.info(f"Please draw Solvent/Catalyst {i + 1} above.")
-        st.session_state.solv_list = solv_list
+            st.session_state.solv_list = solv_list
 
     if "number_products" not in st.session_state:
         st.session_state.number_products = 1
@@ -139,7 +136,6 @@ if st.session_state.page_active == "Molecular visualization":
     def remove_products():
         if st.session_state.number_products > 1:
             st.session_state.number_products -= 1
-    
     col5, col6 = st.columns(2)
     with col5: 
         st.button("➕ Add Product", on_click=add_products)
@@ -152,8 +148,10 @@ if st.session_state.page_active == "Molecular visualization":
             prod_labels.append("Main Product")
         else:
             prod_labels.append(f"Product {i + 1}")
-
     tabs_prod = st.tabs(prod_labels)
+
+
+    from streamlit_ketcher import st_ketcher
     prod_list = []
     for i, tab in enumerate(tabs_prod):
         with tab:
@@ -166,7 +164,6 @@ if st.session_state.page_active == "Molecular visualization":
             else:
                 st.info(f"Please draw Product {i + 1} above.")
     st.session_state.prod_list = prod_list
-    
     
 
     reag_str = ".".join([s for s in st.session_state.reag_list if s])
@@ -228,6 +225,7 @@ if "solv_list" in st.session_state.solv_list:
 if "prod_list" in st.session_state:
     all_smiles_dict["Product"] = [s for s in st.session_state.prod_list if s]
 print(all_smiles_dict)
+
 
 
 
