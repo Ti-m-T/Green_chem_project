@@ -2,10 +2,12 @@ import streamlit as st
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
 import os 
+import random
 from PIL import Image
-from Atom_economy_function import calcul_coef_stoechio
+from Atom_economy_function import calcul_coef_stoechio, calculate_eco_atm_M
 from rdkit.Chem import rdMolDescriptors
 import re
+import plotly.graph_objects as go
 
 
 st.set_page_config(page_title="Green Chemistry Calculator", page_icon=":leaves:")
@@ -60,38 +62,6 @@ st.sidebar.title("Menu")
 
 if st.sidebar.button("🏠 Home"):
     go_to("Home")
-
-if st.sidebar.button("🧪 Stoichiometry"):
-    go_to("Stoichiometry")
-    st.title("Stoichiometry")
-    st.write("Write the chemical formula of your reactants, products and solvent to get the correct stoichiometry of the reaction!")
-
-input_data = {"reactants": st.session_state.get("reag_list", []), "products":st.session_state.get("prod_list", [])}
-
-if st.button("⚖️ Calculate Coefficients"):
-    if input_data["reactants"] and input_data["products"]:
-        try:
-            results = calcul_coef_stoechio(input_data)
-            st.success("Reaction Balanced!")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.subheader("Reactants")
-                for smiles, coef in results["reactants"].items():
-                    formula = get_formula(smiles)
-                    st.latex(rf"{coef} \text{{ }} {formula}")
-            with col2:
-                st.subheader("Products")
-                for smiles, coef in results["products"].items():
-                    formula = get_formula(smiles)
-                    st.latex(rf"{coef} \text{{ }} {formula}")
-            st.session_state.stoich_results = results
-        except Exception as e:
-            st.error(f"Error during balancing: {e}")
-            st.info("Check if all atoms in reactants are also present in products.")
-        else:
-            if len(input_data["reactants"]) == 0 or len(input_data["products"]) == 0:
-                st.warning("⚠️ Please add both Reagents and Products first!")
-        
 
 
 if st.sidebar.button("⚛️ Molecular visulization"):
@@ -266,6 +236,128 @@ if "solv_list" in st.session_state.solv_list:
 if "prod_list" in st.session_state:
     all_smiles_dict["Product"] = [s for s in st.session_state.prod_list if s]
 print(all_smiles_dict)
+
+
+
+if st.sidebar.button("🧪 Stoichiometry"):
+    go_to("Stoichiometry")
+    st.title("Stoichiometry")
+    st.write("Write the chemical formula of your reactants, products and solvent to get the correct stoichiometry of the reaction!")
+
+input_data = {"reactants": st.session_state.get("reag_list", []), "products":st.session_state.get("prod_list", [])}
+
+if st.button("⚖️ Calculate Coefficients"):
+    if input_data["reactants"] and input_data["products"]:
+        try:
+            results = calcul_coef_stoechio(input_data)
+            st.success("Reaction Balanced!")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Reactants")
+                for smiles, coef in results["reactants"].items():
+                    formula = get_formula(smiles)
+                    st.latex(rf"{coef} \text{{ }} {formula}")
+            with col2:
+                st.subheader("Products")
+                for smiles, coef in results["products"].items():
+                    formula = get_formula(smiles)
+                    st.latex(rf"{coef} \text{{ }} {formula}")
+            st.session_state.stoich_results = results
+        except Exception as e:
+            st.error(f"Error during balancing: {e}")
+            st.info("Check if all atoms in reactants are also present in products.")
+        else:
+            if len(input_data["reactants"]) == 0 or len(input_data["products"]) == 0:
+                st.warning("⚠️ Please add both Reagents and Products first!")
+
+st.divider()
+st.subheader("🌿 Green Metrics: Atom Economy")
+    
+input_data = {"reactants": st.session_state.get("reag_list", []),"products": st.session_state.get("prod_list", [])}
+
+def display_linear_gauge(value, title="Atom Economy"): #Colored bar function
+    pos = max(0, min(100, value)) #Def of min and max values
+    
+    if pos < 50: color = "#ff4b4b"   # Color of the text
+    elif pos < 80: color = "#ffa500" 
+    else: color = "#00cc96"          
+    
+    gauge_html = f"""
+    <div style="font-family: sans-serif; margin: 20px 0; padding: 10px; background-color: #f9f9f9; border-radius: 10px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+            <span style="font-weight: bold; font-size: 1.1rem; color: #333;">{title}</span>
+            <span style="font-weight: bold; font-size: 1.3rem; color: {color};">{value:.1f}%</span>
+        </div>
+        <div style="position: relative; height: 25px; width: 100%; border-radius: 12px; 
+                    background: linear-gradient(to right, #ff4b4b 0%, #ffeb3b 50%, #00cc96 100%); 
+                    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="position: absolute; left: calc({pos}% - 10px); top: -12px; 
+                        width: 0; height: 0; 
+                        border-left: 10px solid transparent;
+                        border-right: 10px solid transparent;
+                        border-top: 15px solid #333;">
+            </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-top: 8px; color: #888;">
+            <span>Low Efficiency</span>
+            <span>Ideal Synthesis</span>
+        </div>
+    </div>
+    """
+    st.markdown(gauge_html, unsafe_allow_html=True)
+
+def st_skulls(num_skulls=20): #Definition of a function to pop skulls if the economy atom of the reaction is below 40
+    skulls_html = f"""
+    <div id="skulls-container-{random.randint(0, 1000)}" class="skulls-temporary">
+        {"".join([f'<span style="left:{random.uniform(5,95)}%; animation-delay:{random.uniform(0,2)}s;">💀</span>' for _ in range(num_skulls)])}
+    </div>
+    
+    <style>
+    .skulls-temporary {{
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        pointer-events: none; z-index: 9999;
+    }}
+    .skulls-temporary span {{
+        position: absolute;
+        bottom: -10%;
+        font-size: 2.5rem;
+        /* L'animazione viene eseguita 1 volta sola e si ferma alla fine (forwards) */
+        animation: floatUpOnce 4s ease-in forwards 1; 
+    }}
+
+    @keyframes floatUpOnce {{
+        0% {{ bottom: -10%; opacity: 0; transform: scale(0.5); }}
+        20% {{ opacity: 1; }}
+        80% {{ opacity: 1; }}
+        100% {{ bottom: 110%; opacity: 0; transform: scale(1.2); }}
+    }}
+    </style>
+    """
+    st.markdown(skulls_html, unsafe_allow_html=True)
+
+
+if st.button("🌿 Green Metrics: Atom Economy"):
+    if len(input_data["reactants"]) > 0 and len(input_data["products"]) > 0:
+        try:
+            
+            ae_result = calculate_eco_atm_M(input_data)
+            
+            
+            display_linear_gauge(ae_result, "Atom Economy")
+            
+            
+            if ae_result > 90: #Congratulation message
+                st.balloons()
+                st.success("Excellent! This reaction is extremely atom-efficient.")
+            elif ae_result < 40: #Warning message
+                st_skulls()
+                st.warning("Warning: this reaction produces too much waste.")
+                
+        except Exception as e:
+            st.error(f"Error during the calculation: {e}")
+    else:
+        st.error("Please, add a reactant and a product.")
 
 
 
