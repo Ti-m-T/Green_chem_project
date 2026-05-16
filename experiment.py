@@ -22,7 +22,6 @@ from thermo import chemical as density_finder
 @dataclass
 class Chemical: # Class grouping all chemicals 
     smiles: str
-    mass: float = field(init=False, default=0.0)
 
     def __post_init__(self):
         self.mol = Chem.MolFromSmiles(self.smiles) # Gets molecular object from smiles
@@ -32,18 +31,30 @@ class Chemical: # Class grouping all chemicals
             self.mol_f=rdMolDescriptors.CalcMolFormula(self.mol) # Finds the molecular formula using the smiles
             self.coeff: int=1
             self.nb_atom = Chem.AddHs(self.mol).GetNumAtoms() # Finds the number of atoms in the molecule including hydrogens
-            self.moles:float = self.mass/self.mw
+            self.moles: float = 0.0
+            self._mass: float = 0.0
         else:
             self.mw = 0.0
             self.smiles = "Invalid"
     
+    @property
+    def mass(self):
+        return self._mass
+    
+    @mass.setter
+    def mass(self, value:float):
+        self._mass=value
+        if self.mw>0:
+         self.moles=value/self.mw
 
 @dataclass
 class ChemswithMass(Chemical):
-    mass: float = 0.0
+    initial_mass: float = 0.0
 
     def __post_init__(self):
         super().__post_init__()
+        if self.initial_mass>0:
+            self.mass=self.initial_mass
 
 
 @dataclass    
@@ -53,10 +64,10 @@ class LiquidChemical(Chemical): # Subclass of chemical grouping all chemicals th
 
     def __post_init__(self):
         super().__post_init__()
-        self.density = density_finder(self.smiles).rhols
+        self.density = density_finder(self.smiles).rhols /1000
 
     @property
-    def m_solvent(self):
+    def m_liquid(self):
         return self.density*self.volume
 
 
@@ -70,23 +81,23 @@ class Extractant(LiquidChemical): # Subclass of LiquidChemical meant for extract
 
 @dataclass
 class Reaction:
-    reactants: list[Chemical] = field(default_factory=list)
-    byproducts: list[Chemical] = field(default_factory=list)
+    reactants: list[Chemical] = field(default_factory=list) # Class that contains all reactants used in a reaction
+    byproducts: list[Chemical] = field(default_factory=list) # Class that contains all products used in a reaction
     #wanted_products: list[ChemswithMass] = field(default_factory=list)
-    wanted_product: ChemswithMass = 0
-    reagents: list[ChemswithMass] = field(default_factory=list)
+    wanted_product: ChemswithMass = field(default_factory=lambda: ChemswithMass(smiles=""))
+    Catalysts: list[ChemswithMass] = field(default_factory=list)
     solvents: list[Solvent] = field(default_factory=list)
     extractants: list[Extractant] = field(default_factory=list)
-    Chosen_Yield: float = 0.0
+    Chosen_Yield: float = 1
     
     def stoich_of_reaction(self):
         reac={reactant.mol_f for reactant in self.reactants}
-        prod={other_product.mol_f for other_product in self.other_products}
+        prod={byproduct.mol_f for byproduct in self.byproducts}
         prod.add(self.wanted_product.mol_f)
         reactants_coeff,products_coeff=balance_stoichiometry(reac,prod)
         for reactant in self.reactants:
             reactant.coeff=reactants_coeff.get(reactant.mol_f,1)
-        for product in self.products:
+        for product in self.byproducts:
             product.coeff=products_coeff.get(product.mol_f,1)
         self.wanted_product.coeff=products_coeff.get(self.wanted_product.mol_f,1)
         return reactants_coeff,products_coeff
@@ -95,26 +106,25 @@ class Reaction:
         self.stoich_of_reaction()
         return (self.wanted_product.coeff*self.wanted_product.mw)*100/sum(reactant.coeff*reactant.mw for reactant in self.reactants)
 
-    def total_mass_reagents(self):
+    def total_mass_catalysts(self):
          self.stoich_of_reaction()
-         for reagent in self.reagents:
-            reagent.moles = self.wanted_product.moles/((self.wanted_product.coeff/reagent.coeff)*self.Chosen_Yield)
-            reagent.mass = reagent.moles*reagent.mw
-            total_mass_reagent+=reagent.mass
-         return total_mass_reagent
+         total_mass_catalyst=0
+         for catalyst in self.Catalysts:
+            total_mass_catalyst+=catalyst.mass
+         return total_mass_catalyst
     
     def total_mass_solvents(self):
         self.stoich_of_reaction()
         total_mass_solvent:float = 0.0
         for solvent in self.solvents:
-            total_mass_solvent+=solvent.mass
+            total_mass_solvent+=solvent.m_liquid
         return total_mass_solvent
     
     def total_mass_extractants(self):
         self.stoich_of_reaction()
         total_mass_extractant:float = 0.0
         for extractant in self.extractants:
-            total_mass_extractant+=extractant.mass
+            total_mass_extractant+=extractant.m_liquid
         return total_mass_extractant
 
     def total_mass_reactants(self):
@@ -136,7 +146,7 @@ class Reaction:
         return total_mass_byproduct
     
     def mass_reactants_left(self):
-        self.total_mass_extractants()
+        self.total_mass_reactants()
         self.stoich_of_reaction()
         tot_mass_reactant_left:float = 0.0
         for reactant in self.reactants:
@@ -144,25 +154,15 @@ class Reaction:
             mass_reactant_left=mol_reactant_left*reactant.mw
             tot_mass_reactant_left+=mass_reactant_left
         return tot_mass_reactant_left
-    
-    def mass_reagents_left(self):
-        self.total_mass_extractants()
-        self.stoich_of_reaction()
-        tot_mass_reagent_left:float = 0.0
-        for reagent in self.reagents:
-            mol_reagent_left=reagent.moles-(self.wanted_product.moles*reagent.coeff)/self.wanted_product.coeff
-            mass_reagent_left=mol_reagent_left*reagent.mw
-            tot_mass_reagent_left+=mass_reagent_left
-        return tot_mass_reagent_left
 
     def PMI(self):
         self.stoich_of_reaction()
-        total_input = self.total_mass_reactants() + self.total_mass_solvents() + self.total_mass_extractants() + self.total_mass_reagents()
+        total_input = self.total_mass_reactants() + self.total_mass_solvents() + self.total_mass_extractants() + self.total_mass_catalysts()
         return total_input/self.wanted_product.mass
      
     def e_factor(self):
         self.stoich_of_reaction()
-        waste=self.mass_reagents_left()+self.mass_reactants_left()+self.total_mass_extractants()+self.total_mass_solvents()
+        waste=self.total_mass_catalysts()+self.mass_reactants_left()+self.total_mass_extractants()+self.total_mass_solvents()+self.total_mass_byproducts
         return waste/self.wanted_product.mass
         
 
