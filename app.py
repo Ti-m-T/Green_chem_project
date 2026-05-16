@@ -1,5 +1,8 @@
 import streamlit as st
+
 from Atom_economy_function import calcul_coef_stoechio
+
+
 
 st.title("Reaction builder")
 
@@ -44,4 +47,6 @@ if st.button("Compute"):
 
     st.write(result)
 
+
 # On importe la fonction de calcul des coefficients stoechiométriques et on l'applique au dictionnaire de réaction créé à partir des inputs, affichant les résultats dans l'application Streamlit.
+
