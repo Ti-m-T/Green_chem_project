@@ -19,6 +19,7 @@ import pubchempy as pcp
 from chempy.chemistry import balance_stoichiometry
 from thermo import chemical as density_finder
 
+
 @dataclass
 class Chemical: # Class grouping all chemicals 
     smiles: str
@@ -162,22 +163,22 @@ class Reaction:
      
     def e_factor(self):
         self.stoich_of_reaction()
-        waste=self.total_mass_catalysts()+self.mass_reactants_left()+self.total_mass_extractants()+self.total_mass_solvents()+self.total_mass_byproducts
+        waste=self.total_mass_catalysts()+self.mass_reactants_left()+self.total_mass_extractants()+self.total_mass_solvents()+self.total_mass_byproducts()
         return waste/self.wanted_product.mass
         
 
         
 
         
-'''r1=Chemical(smiles="C",mass=1)
+"""r1=Chemical(smiles="C",mass=1)
 r2=Chemical(smiles="O=O",mass=1)
 p1=Chemical(smiles="C(=O)=O",mass=1)
 p2=Chemical(smiles="O",mass=1)
-react=Reaction([r1,r2],[p1,p2])'''
+react=Reaction([r1,r2],[p1],p2])
 reactants=[Chemical(smiles="C"),Chemical(smiles="O=O")]
 byproducts=[Chemical(smiles="O")]
 main_product=Chemical(smiles="C(=O)=O")
 Solvent
-reacto=Reaction()
+reacto=Reaction()"""
 
 
